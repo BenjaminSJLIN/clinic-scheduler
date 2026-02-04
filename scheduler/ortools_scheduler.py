@@ -325,9 +325,9 @@ class ORToolsScheduler:
                 weekly_shift_vars = [shift_vars[emp_idx][s_idx] for s_idx in shift_indices]
                 
                 if self.relaxed_shifts:
-                    # 放寬：8-10 班
+                    # 放寬：8-11 班
                     self.model.Add(sum(weekly_shift_vars) >= 8)
-                    self.model.Add(sum(weekly_shift_vars) <= 10)
+                    self.model.Add(sum(weekly_shift_vars) <= 11)
                 else:
                     # 嚴格：恰好 10 班
                     self.model.Add(sum(weekly_shift_vars) == 10)

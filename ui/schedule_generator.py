@@ -22,22 +22,25 @@ def render_time_off_input(employees: List[Employee], sheets_manager):
     time_off_requests = sheets_manager.get_time_off_requests()
     
     if time_off_requests:
-        st.markdown("#### 現有請假")
-        for req in time_off_requests:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.info(f"👤 {req.employee_name} - {req.date.strftime('%Y-%m-%d')} {req.shift_time}班")
-            with col2:
-                if st.button("🗑️", key=f"del_timeoff_{req.employee_name}_{req.date}_{req.shift_time}"):
-                    sheets_manager.remove_time_off_request(
-                        req.employee_name,
-                        req.date.strftime('%Y-%m-%d'),
-                        req.shift_time
-                    )
-                    st.rerun()
+        st.markdown("#### 📝 現有請假")
+        
+        # 使用container的height参数来创建固定高度的滚动区域
+        with st.container(height=300):
+            for req in time_off_requests:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.info(f"👤 {req.employee_name} - {req.date.strftime('%Y-%m-%d')} {req.shift_time}班")
+                with col2:
+                    if st.button("🗑️", key=f"del_timeoff_{req.employee_name}_{req.date}_{req.shift_time}"):
+                        sheets_manager.remove_time_off_request(
+                            req.employee_name,
+                            req.date.strftime('%Y-%m-%d'),
+                            req.shift_time
+                        )
+                        st.rerun()
     
-    # 新增請假
-    st.markdown("#### 新增請假")
+    # 新增請假 - 在expander外面
+    st.markdown("#### 🆕 新增請假")
     with st.form("time_off_form"):
         cols = st.columns([2, 2, 1])
         
@@ -102,22 +105,25 @@ def render_pre_assigned_input(employees: List[Employee], sheets_manager):
     pre_assigned = sheets_manager.get_pre_assigned_shifts()
     
     if pre_assigned:
-        st.markdown("#### 現有預排班")
-        for shift in pre_assigned:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.success(f"✅ {shift.employee_name} - {shift.date.strftime('%Y-%m-%d')} {shift.shift_time}班")
-            with col2:
-                if st.button("🗑️", key=f"del_{shift.employee_name}_{shift.date}_{shift.shift_time}"):
-                    sheets_manager.remove_pre_assigned_shift(
-                        shift.employee_name,
-                        shift.date.strftime('%Y-%m-%d'),
-                        shift.shift_time
-                    )
-                    st.rerun()
+        st.markdown("#### 📋 現有預排班")
+        
+        # 使用container的height参数来创建固定高度的滚动区域
+        with st.container(height=300):
+            for shift in pre_assigned:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.success(f"✅ {shift.employee_name} - {shift.date.strftime('%Y-%m-%d')} {shift.shift_time}班")
+                with col2:
+                    if st.button("🗑️", key=f"del_{shift.employee_name}_{shift.date}_{shift.shift_time}"):
+                        sheets_manager.remove_pre_assigned_shift(
+                            shift.employee_name,
+                            shift.date.strftime('%Y-%m-%d'),
+                            shift.shift_time
+                        )
+                        st.rerun()
     
-    # 新增預排班
-    st.markdown("#### 新增預排班")
+    # 新增預排班 - 在expander外面
+    st.markdown("#### 🆕 新增預排班")
     with st.form("pre_assigned_form"):
         cols = st.columns([2, 2, 1])
         
@@ -210,28 +216,42 @@ def render_schedule_generator(
             
             # 顯示結果
             if schedules:
-                st.success(f"✅ 找到 {len(schedules)} 個有效排班方案！")
+                # 檢查是否使用了放寬條件
+                relaxed_info = st.session_state.get('relaxed_info', {})
+                if any(relaxed_info.values()):
+                    st.success(f"✅ 找到 {len(schedules)} 個有效排班方案！（使用放寬條件）")
+                else:
+                    st.success(f"✅ 找到 {len(schedules)} 個有效排班方案！")
                 
                 # 顯示診斷資訊
-                st.info(f"""
+                diag_msg = f"""
                 **演算法**: OR-Tools CP-SAT  
                 **狀態**: {diagnostics.get('solver_status', 'N/A')}  
                 **求解時間**: {diagnostics.get('solve_time', 0):.2f}秒  
                 **內部分支數**: {diagnostics.get('num_branches', 0):,}
-                """)
+                """
+                
+                # 顯示放寬條件資訊
+                if relaxed_info.get('requirements'):
+                    diag_msg += "\n**放寬**: 班次需求減半"
+                if relaxed_info.get('shifts'):
+                    diag_msg += "\n**放寬**: 允許每週 8-11 班"
+                if relaxed_info.get('days_off'):
+                    diag_msg += "\n**放寬**: 允許每週只休 1 天"
+                
+                st.info(diag_msg)
             else:
                 st.error("❌ 找不到符合條件的排班方案")
-                st.warning("請嘗試放寬條件")
+                st.warning("請在下方嘗試放寬條件")
                 
-                # 顯示放寬條件選項
-                render_constraint_relaxation(
-                    employees,
-                    requirements,
-                    time_off_requests,
-                    pre_assigned_shifts,
-                    start_date,
-                    num_weeks
-                )
+                # 顯示診斷資訊
+                if diagnostics:
+                    st.info(f"""
+                    **求解狀態**: {diagnostics.get('solver_status', 'N/A')}  
+                    **求解時間**: {diagnostics.get('solve_time', 0):.2f}秒  
+                    **衝突數**: {diagnostics.get('num_conflicts', 0):,}  
+                    **分支數**: {diagnostics.get('num_branches', 0):,}
+                    """)
     
     # 顯示生成的排班選項
     if 'generated_schedules' in st.session_state and st.session_state.generated_schedules:
@@ -239,6 +259,18 @@ def render_schedule_generator(
             st.session_state.generated_schedules,
             st.session_state.start_date,
             sheets_manager
+        )
+    
+    # 如果有失敗的診斷資訊，顯示放寬條件選項
+    if 'diagnostics' in st.session_state and not st.session_state.get('generated_schedules'):
+        st.markdown("---")
+        render_constraint_relaxation(
+            employees,
+            requirements,
+            time_off_requests,
+            pre_assigned_shifts,
+            st.session_state.get('start_date', datetime.now().date()),
+            num_weeks
         )
 
 
@@ -273,7 +305,7 @@ def render_constraint_relaxation(
             value=True
         )
         relax_shifts = st.checkbox(
-            "放寬正職班次數（允許每週 8-10 班）",
+            "放寬正職班次數（允許每週 8-11 班）",
             value=False
         )
         relax_days_off = st.checkbox(
@@ -305,18 +337,18 @@ def render_constraint_relaxation(
             # 生成排班
             schedules, diagnostics = scheduler.generate_schedules()
             
-            # 儲存到 session state
+            # 儲存到 session state（包括放寬條件資訊）
             st.session_state.generated_schedules = schedules
             st.session_state.start_date = start_date
             st.session_state.diagnostics = diagnostics
+            st.session_state.relaxed_info = {
+                'requirements': relax_requirements,
+                'shifts': relax_shifts,
+                'days_off': relax_days_off
+            }
             
-            # 顯示結果
-            if schedules:
-                st.success(f"✅ 找到 {len(schedules)} 個有效排班方案！")
-                st.info(f"求解時間: {diagnostics.get('solve_time', 0):.2f}秒")
-                st.rerun()
-            else:
-                st.error("❌ 即使放寬條件仍找不到方案，請檢查設定或增加員工")
+            # 強制重新整理，讓主函數顯示結果
+            st.rerun()
 
 
 def render_schedule_selector(schedules: List[Schedule], start_date: date, sheets_manager):
