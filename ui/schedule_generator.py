@@ -49,21 +49,43 @@ def render_time_off_input(employees: List[Employee], sheets_manager):
         with cols[1]:
             request_date = st.date_input("日期", value=datetime.now().date())
         with cols[2]:
-            shift_time = st.selectbox("班次", ["早", "中", "晚"])
+            shift_time = st.selectbox("班次", ["早", "中", "晚", "全天"])
         
         submit = st.form_submit_button("➕ 新增請假", type="primary")
         
         if submit:
-            new_request = TimeOffRequest(
-                employee_name=employee_name,
-                date=request_date,
-                shift_time=shift_time
-            )
-            if sheets_manager.add_time_off_request(new_request):
-                st.success(f"✅ 已新增請假：{employee_name} {request_date} {shift_time}班")
-                st.rerun()
+            # 如果選擇全天，則新增早、中、晚三個請假記錄
+            if shift_time == "全天":
+                success_count = 0
+                for time in ["早", "中", "晚"]:
+                    new_request = TimeOffRequest(
+                        employee_name=employee_name,
+                        date=request_date,
+                        shift_time=time
+                    )
+                    if sheets_manager.add_time_off_request(new_request):
+                        success_count += 1
+                
+                if success_count == 3:
+                    st.success(f"✅ 已新增全天請假：{employee_name} {request_date} (早、中、晚)")
+                    st.rerun()
+                elif success_count > 0:
+                    st.warning(f"⚠️ 部分新增成功：已新增 {success_count}/3 個班次")
+                    st.rerun()
+                else:
+                    st.error("❌ 新增失敗")
             else:
-                st.error("❌ 新增失敗")
+                # 單一班次請假
+                new_request = TimeOffRequest(
+                    employee_name=employee_name,
+                    date=request_date,
+                    shift_time=shift_time
+                )
+                if sheets_manager.add_time_off_request(new_request):
+                    st.success(f"✅ 已新增請假：{employee_name} {request_date} {shift_time}班")
+                    st.rerun()
+                else:
+                    st.error("❌ 新增失敗")
 
 
 def render_pre_assigned_input(employees: List[Employee], sheets_manager):
