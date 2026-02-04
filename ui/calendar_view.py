@@ -113,6 +113,38 @@ def render_calendar_view(schedule: Schedule, start_date):
                             unsafe_allow_html=True
                         )
         
+        # 計算並顯示當週每人的排班數
+        st.markdown("##### 🔢 當週排班統計")
+        
+        shift_counts = {}
+        week_end = week_start + timedelta(days=6)
+        
+        # 篩選當週的排班
+        current_week_shifts = [
+            s for s in schedule.shifts 
+            if week_start <= s.date <= week_end
+        ]
+        
+        # 計算每人班次
+        for shift in current_week_shifts:
+            for emp in shift.assigned_employees:
+                shift_counts[emp.name] = shift_counts.get(emp.name, 0) + 1
+        
+        # 顯示統計結果
+        if shift_counts:
+            # 依班次數由多到少排序
+            sorted_counts = sorted(shift_counts.items(), key=lambda x: x[1], reverse=True)
+            
+            # 使用多欄顯示
+            num_cols = 6
+            stat_cols = st.columns(num_cols)
+            
+            for idx, (name, count) in enumerate(sorted_counts):
+                with stat_cols[idx % num_cols]:
+                    st.info(f"{name}: {count}")
+        else:
+            st.caption("尚無排班資料")
+
         st.markdown("---")
     
     # 圖例
