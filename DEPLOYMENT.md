@@ -137,11 +137,31 @@ token_uri = "https://oauth2.googleapis.com/token"
 auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
 client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/..."
 
+# 重要: spreadsheet_id 必須在最外層,不要放在 [google_credentials] 區塊內!
 spreadsheet_id = "你的試算表ID"
 ```
 
 > [!IMPORTANT]
 > **private_key 注意事項**: 請確保 `private_key` 的換行符號 `\n` 被保留。這是最常見的錯誤來源!
+
+> [!WARNING]
+> **spreadsheet_id 位置**: `spreadsheet_id` 必須在 **最外層**,不要放在 `[google_credentials]` 區塊內!這是導致需要重複輸入的主要原因。
+
+**正確格式**:
+```toml
+[google_credentials]
+type = "service_account"
+...
+
+spreadsheet_id = "1ABC...XYZ"  # ← 在外層,與 [google_credentials] 同級
+```
+
+**錯誤格式** ❌:
+```toml
+[google_credentials]
+type = "service_account"
+spreadsheet_id = "1ABC...XYZ"  # ← 錯誤!不要放在這裡
+```
 
 #### 3.2 在 Streamlit Cloud 添加 Secrets
 

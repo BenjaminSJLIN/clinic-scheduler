@@ -58,16 +58,20 @@ def init_connection():
         # 讀取試算表 ID (優先從 Secrets,其次從 config.py,最後從 session state)
         spreadsheet_id = None
         
-        # 1. 嘗試從 Streamlit Secrets 讀取
+        # 1. 嘗試從 Streamlit Secrets 讀取 (最高優先權)
         try:
-            if "spreadsheet_id" in st.secrets:
-                spreadsheet_id = st.secrets["spreadsheet_id"]
-                st.session_state.spreadsheet_id = spreadsheet_id
-        except:
+            # 檢查是否在 Streamlit Cloud 環境中
+            if hasattr(st, 'secrets'):
+                if "spreadsheet_id" in st.secrets:
+                    spreadsheet_id = st.secrets["spreadsheet_id"]
+                    # 如果成功從 Secrets 讀取,也存到 session state 以便後續使用
+                    st.session_state.spreadsheet_id = spreadsheet_id
+        except Exception as e:
+            # Secrets 讀取失敗,繼續嘗試其他方法
             pass
         
-        # 2. 嘗試從 config.py 讀取
-        if spreadsheet_id is None:
+        # 2. 如果 Secrets 沒有,嘗試從 config.py 讀取
+        if spreadsheet_id is None or spreadsheet_id == "":
             try:
                 import config
                 if hasattr(config, 'SPREADSHEET_ID') and config.SPREADSHEET_ID:
@@ -76,14 +80,30 @@ def init_connection():
             except ImportError:
                 pass
         
-        # 3. 從 session state 讀取
-        if spreadsheet_id is None and 'spreadsheet_id' in st.session_state:
+        # 3. 如果前兩者都沒有,才從 session state 讀取(用於手動輸入的情況)
+        if (spreadsheet_id is None or spreadsheet_id == "") and 'spreadsheet_id' in st.session_state:
             spreadsheet_id = st.session_state.spreadsheet_id
         
         # 4. 如果還是沒有，要求使用者輸入
-        if spreadsheet_id is None:
+        if spreadsheet_id is None or spreadsheet_id == "":
             st.markdown("## 🏥 診所排班系統")
             st.markdown("### 首次設定")
+            
+            # 提供除錯資訊
+            with st.expander("🔍 偵測資訊(除錯用)", expanded=False):
+                st.write("**Secrets 狀態:**")
+                try:
+                    if hasattr(st, 'secrets'):
+                        st.write("✅ Streamlit Secrets 可用")
+                        if "spreadsheet_id" in st.secrets:
+                            st.write(f"✅ 找到 spreadsheet_id: {st.secrets['spreadsheet_id'][:10]}...")
+                        else:
+                            st.write("❌ Secrets 中沒有 'spreadsheet_id' 鍵")
+                            st.write(f"可用的鍵: {list(st.secrets.keys())}")
+                    else:
+                        st.write("❌ Streamlit Secrets 不可用(可能在本地環境)")
+                except Exception as e:
+                    st.write(f"❌ 讀取 Secrets 時發生錯誤: {str(e)}")
             
             st.info("💡 提示：您可以將試算表 ID 寫在 config.py 中，或在 Streamlit Secrets 中設定")
             
